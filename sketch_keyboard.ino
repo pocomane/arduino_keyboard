@@ -54,18 +54,27 @@ Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_GAMEPAD,
 
 #endif // ENABLE_JOYSTICK
 
+static unsigned long current_milli = 0;
+static void next_time_step(void) { current_milli = millis(); }
+static unsigned long current_time_step(void)  { return current_milli; }
+
 static int last_value[32];
+static unsigned long last_milli[32];
 
 static int deltaInit() {
-  for (int k = 0; k < sizeof(last_value)/sizeof(*last_value); k += 1)
+  for (int k = 0; k < sizeof(last_value)/sizeof(*last_value); k += 1){
+    last_milli[k] = current_time_step();
     last_value[k] = digitalRead(k);
+  }
 }
 
 static int deltaRead(int pin, int* value) {
-  // TODO : add debounce
 
   DASSERT(pin >= 0 && pin < sizeof(last_value)/sizeof(*last_value), 0,
     "ERROR trying to read unsupported pin %d\n", pin);
+
+  if (current_milli - last_milli[pin] < 1) return 0;
+  last_milli[pin] = current_time_step();
 
   *value = digitalRead(pin);
   if (last_value[pin] != *value) {
@@ -99,6 +108,8 @@ void setup_first() {
 }
 
 void setup_last() {
+
+  next_time_step();
   deltaInit();
 
   // shutdown annoying leds
@@ -111,6 +122,8 @@ void setup_last() {
 }
 
 static void loop_common(void){
+
+  next_time_step();
 
   // the bootloader continously turn on the annoying leds, shutdown
   digitalWrite(LED_BUILTIN, HIGH);
