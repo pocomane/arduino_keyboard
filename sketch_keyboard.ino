@@ -46,7 +46,7 @@ typedef enum {
 #ifdef ENABLE_JOYSTICK
 
 Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_GAMEPAD,
-  16, 0,                 // Button Count, Hat Switch Count
+  16, 1,                 // Button Count, Hat Switch Count
   true, true, false,     // X and Y, but no Z Axis
   false, false, false,   // No Rx, Ry, or Rz
   false, false,          // No rudder or throttle
@@ -73,7 +73,10 @@ static int deltaRead(int pin, int* value) {
   DASSERT(pin >= 0 && pin < sizeof(last_value)/sizeof(*last_value), 0,
     "ERROR trying to read unsupported pin %d\n", pin);
 
-  if (current_milli - last_milli[pin] < 1) return 0;
+  if (current_milli - last_milli[pin] < 1) {
+    *value = last_value[pin];
+    return 0;
+  }
   last_milli[pin] = current_time_step();
 
   *value = digitalRead(pin);
@@ -153,7 +156,7 @@ static int update_mouse_status(int key, int pin){
 static int update_joy_button_status(unsigned char key, int pin){
 #ifdef ENABLE_JOYSTICK
   int new_status;
-  if (deltaRead(pin, &new_status)) {
+  if (deltaRead(pin, &new_status)) { // Note: delta/debounce is not actually needed since  Joistick library does it by its own
     if (new_status == HIGH) Joystick.setButton(key, LOW);
     else Joystick.setButton(key, HIGH);
     LOG("joy_button %d send %d\n", key, new_status);
@@ -162,11 +165,35 @@ static int update_joy_button_status(unsigned char key, int pin){
   return 0;
 }
 
+static int joy_hat_set = 0;
+static int joy_hat_previous_release = 0;
+
 static int update_joy_hat_status(unsigned char key, int pin){
 #ifdef ENABLE_JOYSTICK
-  // TODO : implement
+  int new_status;
+  if (deltaRead(pin, &new_status)) { // Note: delta/debounce is not actually needed since  Joistick library does it by its own
+    if (new_status == LOW) {
+      Joystick.setHatSwitch(0, key * 45);
+      joy_hat_set = 1;
+      LOG("joy_hat %d send %d\n", 0, key);
+    }
+  }
+  if (new_status == LOW) joy_hat_set = 1;
 #endif // ENABLE_JOYSTICK
   return 0;
+}
+
+static int update_joy_last_hat_case() {
+  if (joy_hat_set){
+    joy_hat_previous_release = 0;
+  } else {
+    if (!joy_hat_previous_release){ // Note: delta is not actually needed since  Joistick library does it by its own
+      Joystick.setHatSwitch(0, JOYSTICK_HATSWITCH_RELEASE);
+      joy_hat_previous_release = 1;
+      LOG("joy_hat %d send RELEASE\n", 0);
+    }
+  }
+  joy_hat_set = 0;
 }
 
 static int update_joy_axis_status(unsigned char key, int pin){
@@ -235,6 +262,8 @@ static int loop_mode_0(void) {
   XMACRO(2, SEND_JOY_BUTTON, 0) \
   XMACRO(3, SEND_JOY_BUTTON, 1) \
   XMACRO(4, SEND_JOY_BUTTON, 3) \
+  XMACRO(5, SEND_JOY_HAT, 0)    \
+  XMACRO(6, SEND_JOY_HAT, 4)    \
 //END XMACRODATA
 
 static void setup_mode_1(void){
@@ -254,6 +283,8 @@ static int loop_mode_1(void) {
 #define XMACRO(P, M, K) update_status(K, M, P);
   XMACRODATA;
 #undef XMACRO
+
+  update_joy_last_hat_case();
 
   // switch to mode_0 when pin 7 is fired
   int fired;
