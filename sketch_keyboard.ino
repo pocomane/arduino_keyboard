@@ -28,8 +28,10 @@
 #ifdef DEBUG
 #define ENABLE_SERIAL
 #define LOG(...) do { Serial.print("DEBUG "); Serial.print(__FILE__); Serial.print(":"); Serial.print(__LINE__); Serial.print(" "); char __L[256]; snprintf(__L,255,__VA_ARGS__); __L[255] = '\0'; Serial.print(__L); } while(0)
+#define DASSERT(C, R, ...) do{ if (!(C)){ LOG(__VA_ARGS__); return (R); } }while(0)
 #else // DEBUG
 #define LOG(...)
+#define DASSERT(...)
 #endif // DEBUG
 
 typedef enum {
@@ -52,7 +54,30 @@ Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_GAMEPAD,
 
 #endif // ENABLE_JOYSTICK
 
-void setup_common() {
+static int last_value[32];
+
+static int deltaInit() {
+  for (int k = 0; k < sizeof(last_value)/sizeof(*last_value); k += 1)
+    last_value[k] = digitalRead(k);
+}
+
+static int deltaRead(int pin, int* value) {
+  // TODO : add debounce
+
+  DASSERT(pin >= 0 && pin < sizeof(last_value)/sizeof(*last_value), 0,
+    "ERROR trying to read unsupported pin %d\n", pin);
+
+  *value = digitalRead(pin);
+  if (last_value[pin] != *value) {
+    LOG("pin %d value change %d -> %d\n", pin, last_value[pin], *value);
+    last_value[pin] = *value;
+    return 1;
+  }
+
+  return 0;
+}
+
+void setup_first() {
 
 #ifdef ENABLE_SERIAL
   Serial.begin(9600);
@@ -71,8 +96,12 @@ void setup_common() {
   Joystick.setXAxisRange(-1, 1);
   Joystick.setYAxisRange(-1, 1);
 #endif // ENABLE_JOYSTICK
+}
 
-  // shutdown annoying led
+void setup_last() {
+  deltaInit();
+
+  // shutdown annoying leds
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(LED_BUILTIN_RX, OUTPUT);
   pinMode(LED_BUILTIN_TX, OUTPUT);
@@ -83,96 +112,66 @@ void setup_common() {
 
 static void loop_common(void){
 
-  // the bootloader continously turn on the annoying led, shutdown
+  // the bootloader continously turn on the annoying leds, shutdown
   digitalWrite(LED_BUILTIN, HIGH);
   digitalWrite(LED_BUILTIN_RX, HIGH);
   digitalWrite(LED_BUILTIN_TX, HIGH);
 }
 
-static int update_key_status(unsigned char key, unsigned char new_status){
+static int update_key_status(unsigned char key, int pin){
 #ifdef ENABLE_KEYBOAD
-
-  static int inited = 0;
-  static unsigned char last_status[256];
-  if (!inited){
-    inited = 1;
-    for (int k = 0; k < sizeof(last_status)/sizeof(last_status[0]); k += 1)
-      last_status[k] = LOW;
-  }
-
-  if (new_status != last_status[key]) {
+  int new_status;
+  if (deltaRead(pin, &new_status)) {
     if (new_status == HIGH) Keyboard.release(key);
     else Keyboard.press(key);
-    LOG("value change keyb_key 0x%x [%c] %d -> %d\n", key, key, last_status[key], new_status);
-    last_status[key] = new_status;
+    LOG("keyboard_key 0x%x [%c] send %d\n", key, key, new_status);
   }
 #endif // ENABLE_KEYBOAD
   return 0;
 }
 
-static int update_mouse_status(int key, int new_status){
+static int update_mouse_status(int key, int pin){
 #ifdef ENABLE_MOUSE
   // TODO : implement
 #endif // ENABLE_MOUSE
   return 0;
 }
 
-static int update_joy_button_status(unsigned char key, unsigned char new_status){
+static int update_joy_button_status(unsigned char key, int pin){
 #ifdef ENABLE_JOYSTICK
-
-  static int inited = 0;
-  static unsigned char last_status[32];
-
-  if (key >= sizeof(last_status)/sizeof(last_status[0]))
-    return 0;
-
-  if (!inited){
-    inited = 1;
-    for (int k = 0; k < sizeof(last_status)/sizeof(last_status[0]); k += 1)
-      last_status[k] = LOW;
-  }
-
-  if (new_status != last_status[key]) {
+  int new_status;
+  if (deltaRead(pin, &new_status)) {
     if (new_status == HIGH) Joystick.setButton(key, LOW);
     else Joystick.setButton(key, HIGH);
-    LOG("value change joy_button 0x%x [%c] %d -> %d\n", key, key, last_status[key], new_status);
-    last_status[key] = new_status;
+    LOG("joy_button %d send %d\n", key, new_status);
   }
 #endif // ENABLE_JOYSTICK
   return 0;
 }
 
-static int update_joy_hat_status(unsigned char key, int new_status){
+static int update_joy_hat_status(unsigned char key, int pin){
 #ifdef ENABLE_JOYSTICK
   // TODO : implement
 #endif // ENABLE_JOYSTICK
   return 0;
 }
 
-static int update_joy_axis_status(unsigned char key, int new_status){
+static int update_joy_axis_status(unsigned char key, int pin){
 #ifdef ENABLE_JOYSTICK
   // TODO : implement
 #endif // ENABLE_JOYSTICK
   return 0;
 }
 
-static int update_status(int key, int mode, int new_status){
+static int update_status(int key, int mode, int pin){
   switch (mode) {
-
-  break;case SEND_KEYBOARD: return update_key_status(key, new_status);
-  break;case SEND_MOUSE:    return update_mouse_status(key, new_status);
-  break;case SEND_JOY_BUTTON: return update_joy_button_status(key, new_status);
-  break;case SEND_JOY_HAT: return update_joy_hat_status(key, new_status);
-  break;case SEND_JOY_AXIS: return update_joy_axis_status(key, new_status);
+  break;case SEND_KEYBOARD: return update_key_status(key, pin);
+  break;case SEND_MOUSE:    return update_mouse_status(key, pin);
+  break;case SEND_JOY_BUTTON: return update_joy_button_status(key, pin);
+  break;case SEND_JOY_HAT: return update_joy_hat_status(key, pin);
+  break;case SEND_JOY_AXIS: return update_joy_axis_status(key, pin);
   break;default: break;
   }
-}
-
-static int delta_value_low(int new_value) {
-  static int can_switch = 0;
-  int old_switch = can_switch;
-  can_switch = (new_value == HIGH);
-  return old_switch && (new_value == LOW);
 }
 
 // Key mode 0 ---------------------------------------------------------------------
@@ -201,12 +200,13 @@ static void setup_mode_0(void){
 static int loop_mode_0(void) {
 
   // Call update_status for each PIN/KEY pair in XMACRODATA
-#define XMACRO(P, M, K) update_status(K, M, digitalRead(P));
+#define XMACRO(P, M, K) update_status(K, M, P);
   XMACRODATA;
 #undef XMACRO
 
   // switch to mode_1 when pin 7 is fired
-  if (delta_value_low(digitalRead(7))){
+  int fired;
+  if (deltaRead(7, &fired) && fired == LOW){
     LOG("switching to mode 1\n");
     return 1;
   }
@@ -238,12 +238,13 @@ static void setup_mode_1(void){
 static int loop_mode_1(void) {
 
   // Call update_status for each PIN/KEY pair in XMACRODATA
-#define XMACRO(P, M, K) update_status(K, M, digitalRead(P));
+#define XMACRO(P, M, K) update_status(K, M, P);
   XMACRODATA;
 #undef XMACRO
 
   // switch to mode_0 when pin 7 is fired
-  if (delta_value_low(digitalRead(7))) {
+  int fired;
+  if (deltaRead(7, &fired) && fired == LOW) {
     LOG("switching to mode 0\n");
     return 0;
   }
@@ -254,10 +255,11 @@ static int loop_mode_1(void) {
 // dispatcher ---------------------------------------------------------------------
 
 void setup() {
-  // NOTE: all hte modes must be compatible at pin-level
-  setup_common();
+  // NOTE: all the modes must be compatible at pin-level
+  setup_first();
   setup_mode_0();
   setup_mode_1();
+  setup_last();
 }
 
 void loop(){
