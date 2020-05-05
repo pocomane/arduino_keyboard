@@ -1,4 +1,21 @@
 
+/***********************************************************************************
+
+This is free and unencumbered work released into the public domain.
+
+Should he previous statement, for any reason, be judged legally invalid or
+ineffective under applicable law, the work is made avaiable under the terms of one
+of the following licences:
+
+- Apache License 2.0 https://www.apache.org/licenses/LICENSE-2.0
+- MIT License https://opensource.org/licenses/MIT
+- CC0 https://creativecommons.org/publicdomain/zero/1.0/legalcode
+- Unlicense https://unlicense.org/
+
+The "Arduino Quick HID"'s Author, 2020
+
+***********************************************************************************/
+
 // Config -------------------------------------------------------------------------
 
 //#define EABLE_SERIAL
