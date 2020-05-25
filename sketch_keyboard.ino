@@ -3,7 +3,7 @@
 
 This is free and unencumbered work released into the public domain.
 
-Should he previous statement, for any reason, be judged legally invalid or
+Should the previous statement, for any reason, be judged legally invalid or
 ineffective under applicable law, the work is made avaiable under the terms of one
 of the following licences:
 
@@ -71,16 +71,16 @@ Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_GAMEPAD,
 
 #endif // ENABLE_JOYSTICK
 
-static unsigned long current_milli = 0;
-static void next_time_step(void) { current_milli = millis(); }
-static unsigned long current_time_step(void)  { return current_milli; }
+static unsigned long now_us = 0;
+static void next_time_step(void) { now_us = micros(); }
+static unsigned long current_time_step(void)  { return now_us; }
 
 static int last_value[32];
-static unsigned long last_milli[32];
+static unsigned long last_change_us[32];
 
 static int deltaInit() {
   for (int k = 0; k < sizeof(last_value)/sizeof(*last_value); k += 1){
-    last_milli[k] = current_time_step();
+    last_change_us[k] = current_time_step();
     last_value[k] = digitalRead(k);
   }
 }
@@ -90,11 +90,11 @@ static int deltaRead(int pin, int* value) {
   DASSERT(pin >= 0 && pin < sizeof(last_value)/sizeof(*last_value), 0,
     "ERROR trying to read unsupported pin %d\n", pin);
 
-  if (current_milli - last_milli[pin] < 1) {
+  if (now_us - last_change_us[pin] < 1000) { // Debouncer
     *value = last_value[pin];
     return 0;
   }
-  last_milli[pin] = current_time_step();
+  last_change_us[pin] = current_time_step();
 
   *value = digitalRead(pin);
   if (last_value[pin] != *value) {
