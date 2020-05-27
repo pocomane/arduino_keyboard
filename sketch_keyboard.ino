@@ -231,6 +231,15 @@ static int update_status(int key, int mode, int pin){
   }
 }
 
+static int single_pin_mode_switch(int current_mode, int next_mode, int pin) {
+  int fired;
+  if (deltaRead(7, &fired) && fired == LOW) {
+    LOG("switching to mode %d\n", next_mode);
+    return 0;
+  }
+  return current_mode;
+}
+
 // Key mode 0 ---------------------------------------------------------------------
 
 #undef XMACRODATA
@@ -261,14 +270,7 @@ static int loop_mode_0(void) {
   XMACRODATA;
 #undef XMACRO
 
-  // switch to mode_1 when pin 7 is fired
-  int fired;
-  if (deltaRead(7, &fired) && fired == LOW){
-    LOG("switching to mode 1\n");
-    return 1;
-  }
-
-  return 0; // Stay in mode 0
+  return single_pin_mode_switch(0, 1, 7);
 }
 
 // Key mode 1 ---------------------------------------------------------------------
@@ -300,17 +302,85 @@ static int loop_mode_1(void) {
 #define XMACRO(P, M, K) update_status(K, M, P);
   XMACRODATA;
 #undef XMACRO
-
   update_joy_last_hat_case();
 
-  // switch to mode_0 when pin 7 is fired
-  int fired;
-  if (deltaRead(7, &fired) && fired == LOW) {
-    LOG("switching to mode 0\n");
-    return 0;
+  return single_pin_mode_switch(0, 1, 7);
+}
+
+// Key mode 2: SNES ----------------------------------------------------------------
+
+// SNES pad protocol:
+//
+//   / """""""""""""""""""""""
+//  |   O  O  O | O  O  O  O |
+//   \ _______________________
+//      G un  un  D  L  C  V
+//
+// un = unused
+// L = LATCH set by the console
+// C = CLOCK set by the console
+// D = DATA  set by the pad
+// G = Ground (0V) provided by the console
+// V = Vcc (5V) provided by the console
+//
+// LATCH  _|""|____________________________________________________________________
+// CLOCK  ______|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|____
+// DATA   =x====x===x===x===x===x===x===x===x===x===x===x===x===x===x===x===x======
+// Button (16x)  B   Y   St  Sel ^   v   <-  ->  A   X   L   R   un  un  un  un
+//
+// ____|"|_|"|_____
+//     <-->
+//     12 us
+//
+
+#define SNES_LATCH_PIN  14
+#define SNES_CLOCK_PIN  15
+#define SNES_DATA_PIN   16
+
+static void setup_mode_2(void){
+
+  pinMode(SNES_CLOCK_PIN, OUTPUT);
+  digitalWrite(SNES_CLOCK_PIN, HIGH);
+
+  pinMode(SNES_LATCH_PIN, OUTPUT);
+  digitalWrite(SNES_LATCH_PIN, LOW);
+
+  pinMode(SNES_DATA_PIN, OUTPUT);
+  digitalWrite(SNES_DATA_PIN, HIGH);
+  pinMode(SNES_DATA_PIN, INPUT);
+
+  // Additional pin for mode switch
+  pinMode(7, INPUT_PULLUP);
+}
+
+static int loop_mode_2(void) {
+
+#ifdef ENABLE_JOYSTICK
+
+  int button[16];
+
+  digitalWrite(SNES_LATCH_PIN, HIGH);
+  delayMicroseconds(12);
+  digitalWrite(SNES_LATCH_PIN, LOW);
+  delayMicroseconds(6);
+
+  for(int i = 0; i < sizeof(button)/sizeof(button[0]); i++){
+      digitalWrite(SNES_CLOCK_PIN, LOW);
+      delayMicroseconds(6);
+      button[i] = digitalRead(SNES_DATA_PIN);
+      digitalWrite(SNES_CLOCK_PIN, HIGH);
+      delayMicroseconds(6);
   }
 
-  return 1; // Stay in mode 1
+  for (int k = 0; k < sizeof(button)/sizeof(button[0]); k += 1) {
+    Joystick.setButton(k, button[k]); // leveraging the internal state handling of the Joystick library (no delta needed)
+  }
+
+  return single_pin_mode_switch(2, 0, 7);
+
+#else // ENABLE_JOYSTICK
+  return -1; // go to default mode
+#endif // ENABLE_JOYSTICK
 }
 
 // dispatcher ---------------------------------------------------------------------
@@ -320,11 +390,12 @@ void setup() {
   setup_first();
   setup_mode_0();
   setup_mode_1();
+  setup_mode_2();
   setup_last();
 }
 
 void loop(){
-  static int mode = 0;
+  static int mode = -1;
 
   loop_common();
 
@@ -332,5 +403,6 @@ void loop(){
   break;default: mode = loop_mode_0();
   break;case  0: mode = loop_mode_0();
   break;case  1: mode = loop_mode_1();
+  break;case  2: mode = loop_mode_2();
   }
 }
