@@ -304,7 +304,7 @@ static int loop_mode_1(void) {
 #undef XMACRO
   update_joy_last_hat_case();
 
-  return single_pin_mode_switch(0, 1, 7);
+  return single_pin_mode_switch(1, 0, 7);
 }
 
 // Key mode 2: SNES ----------------------------------------------------------------
