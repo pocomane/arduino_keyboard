@@ -317,11 +317,11 @@ static int loop_mode_1(void) {
 //      G un  un  D  L  C  V
 //
 // un = unused
-// L = LATCH set by the console
-// C = CLOCK set by the console
-// D = DATA  set by the pad
-// G = Ground (0V) provided by the console
-// V = Vcc (5V) provided by the console
+// G = Ground (0V) provided by the console (1 on PCB)
+// D = DATA  set by the pad (2 on PCB)
+// L = LATCH set by the console (3 on BCB)
+// C = CLOCK set by the console (4 on PCB)
+// V = Vcc (5V) provided by the console (5 on PCB)
 //
 // LATCH  _|""|____________________________________________________________________
 // CLOCK  ______|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|____
