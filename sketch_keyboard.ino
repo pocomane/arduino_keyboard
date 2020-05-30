@@ -367,7 +367,7 @@ static int loop_mode_2(void) {
   for(int i = 0; i < sizeof(button)/sizeof(button[0]); i++){
       digitalWrite(SNES_CLOCK_PIN, LOW);
       delayMicroseconds(6);
-      button[i] = digitalRead(SNES_DATA_PIN);
+      button[i] = !digitalRead(SNES_DATA_PIN);
       digitalWrite(SNES_CLOCK_PIN, HIGH);
       delayMicroseconds(6);
   }
