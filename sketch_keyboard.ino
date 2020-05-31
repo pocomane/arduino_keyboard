@@ -372,8 +372,31 @@ static int loop_mode_2(void) {
       delayMicroseconds(6);
   }
 
-  for (int k = 0; k < sizeof(button)/sizeof(button[0]); k += 1) {
-    Joystick.setButton(k, button[k]); // leveraging the internal state handling of the Joystick library (no delta needed)
+   // leveraging the internal state handling of the Joystick library (no delta needed)
+  Joystick.setButton(1, button[0]); // B
+  Joystick.setButton(2, button[1]); // Y
+  Joystick.setButton(6, button[2]); // start
+  Joystick.setButton(7, button[3]); // select
+  Joystick.setButton(0, button[8]); // A
+  Joystick.setButton(3, button[9]); // X
+  Joystick.setButton(4, button[10]); // L
+  Joystick.setButton(5, button[11]); // R
+  int up = button[4];
+  int down = button[5];
+  int left = button[6];
+  int right = button[7];
+  if (up) {
+    if (left) Joystick.setHatSwitch(0, 7 * 45);
+    else if (right) Joystick.setHatSwitch(0, 1 * 45);
+    else Joystick.setHatSwitch(0, 0 * 45);
+  } else if (down) {
+    if (left) Joystick.setHatSwitch(0, 5 * 45);
+    else if (right) Joystick.setHatSwitch(0, 3 * 45);
+    else Joystick.setHatSwitch(0, 4 * 45);
+  } else {
+    if (left) Joystick.setHatSwitch(0, 6 * 45);
+    else if (right) Joystick.setHatSwitch(0, 2 * 45);
+    else Joystick.setHatSwitch(0, JOYSTICK_HATSWITCH_RELEASE);
   }
 
   return single_pin_mode_switch(2, 0, 7);
