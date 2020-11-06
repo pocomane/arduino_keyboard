@@ -85,6 +85,11 @@ static int deltaInit() {
   }
 }
 
+static int stateRead(int pin, int* value) {
+  *value = digitalRead(pin);
+  return 1;
+}
+
 static int deltaRead(int pin, int* value) {
 
   DASSERT(pin >= 0 && pin < sizeof(last_value)/sizeof(*last_value), 0,
@@ -173,7 +178,7 @@ static int update_mouse_status(int key, int pin){
 static int update_joy_button_status(unsigned char key, int pin){
 #ifdef ENABLE_JOYSTICK
   int new_status;
-  if (deltaRead(pin, &new_status)) { // Note: delta/debounce is not actually needed since  Joistick library does it by its own
+  if (stateRead(pin, &new_status)) {
     if (new_status == HIGH) Joystick.setButton(key, LOW);
     else Joystick.setButton(key, HIGH);
     LOG("joy_button %d send %d\n", key, new_status);
@@ -188,7 +193,7 @@ static int joy_hat_previous_release = 0;
 static int update_joy_hat_status(unsigned char key, int pin){
 #ifdef ENABLE_JOYSTICK
   int new_status;
-  if (deltaRead(pin, &new_status)) { // Note: delta/debounce is not actually needed since  Joistick library does it by its own
+  if (stateRead(pin, &new_status)) {
     if (new_status == LOW) {
       Joystick.setHatSwitch(0, key * 45);
       joy_hat_set = 1;
