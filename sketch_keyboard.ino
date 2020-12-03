@@ -312,103 +312,6 @@ static int loop_mode_1(void) {
   return single_pin_mode_switch(1, 0, 7);
 }
 
-// Key mode 2: SNES ----------------------------------------------------------------
-
-// SNES pad protocol:
-//
-//   / """""""""""""""""""""""
-//  |   O  O  O | O  O  O  O |
-//   \ _______________________
-//      G un  un  D  L  C  V
-//
-// un = unused
-// G = Ground (0V) provided by the console (1 on PCB)
-// D = DATA  set by the pad (2 on PCB)
-// L = LATCH set by the console (3 on BCB)
-// C = CLOCK set by the console (4 on PCB)
-// V = Vcc (5V) provided by the console (5 on PCB)
-//
-// LATCH  _|""|____________________________________________________________________
-// CLOCK  ______|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|_|"|____
-// DATA   =x====x===x===x===x===x===x===x===x===x===x===x===x===x===x===x===x======
-// Button (16x)  B   Y   St  Sel ^   v   <-  ->  A   X   L   R   un  un  un  un
-//
-// ____|"|_|"|_____
-//     <-->
-//     12 us
-//
-
-#define SNES_LATCH_PIN  14
-#define SNES_CLOCK_PIN  15
-#define SNES_DATA_PIN   16
-
-static void setup_mode_2(void){
-
-  pinMode(SNES_CLOCK_PIN, OUTPUT);
-  digitalWrite(SNES_CLOCK_PIN, HIGH);
-
-  pinMode(SNES_LATCH_PIN, OUTPUT);
-  digitalWrite(SNES_LATCH_PIN, LOW);
-
-  pinMode(SNES_DATA_PIN, OUTPUT);
-  digitalWrite(SNES_DATA_PIN, HIGH);
-  pinMode(SNES_DATA_PIN, INPUT);
-
-  // Additional pin for mode switch
-  pinMode(7, INPUT_PULLUP);
-}
-
-static int loop_mode_2(void) {
-
-#ifdef ENABLE_JOYSTICK
-
-  int button[16];
-
-  digitalWrite(SNES_LATCH_PIN, HIGH);
-  delayMicroseconds(12);
-  digitalWrite(SNES_LATCH_PIN, LOW);
-  delayMicroseconds(6);
-
-  for(int i = 0; i < sizeof(button)/sizeof(button[0]); i++){
-      digitalWrite(SNES_CLOCK_PIN, LOW);
-      delayMicroseconds(6);
-      button[i] = !digitalRead(SNES_DATA_PIN);
-      digitalWrite(SNES_CLOCK_PIN, HIGH);
-      delayMicroseconds(6);
-  }
-
-   // leveraging the internal state handling of the Joystick library (no delta needed)
-  Joystick.setButton(1, button[0]); // B
-  Joystick.setButton(2, button[1]); // Y
-  Joystick.setButton(6, button[2]); // start
-  Joystick.setButton(7, button[3]); // select
-  Joystick.setButton(0, button[8]); // A
-  Joystick.setButton(3, button[9]); // X
-  Joystick.setButton(4, button[10]); // L
-  Joystick.setButton(5, button[11]); // R
-  int up = button[4];
-  int down = button[5];
-  int left = button[6];
-  int right = button[7];
-  if (up) {
-    if (left) Joystick.setHatSwitch(0, 7 * 45);
-    else if (right) Joystick.setHatSwitch(0, 1 * 45);
-    else Joystick.setHatSwitch(0, 0 * 45);
-  } else if (down) {
-    if (left) Joystick.setHatSwitch(0, 5 * 45);
-    else if (right) Joystick.setHatSwitch(0, 3 * 45);
-    else Joystick.setHatSwitch(0, 4 * 45);
-  } else {
-    if (left) Joystick.setHatSwitch(0, 6 * 45);
-    else if (right) Joystick.setHatSwitch(0, 2 * 45);
-    else Joystick.setHatSwitch(0, JOYSTICK_HATSWITCH_RELEASE);
-  }
-
-  return single_pin_mode_switch(2, 0, 7);
-
-#else // ENABLE_JOYSTICK
-  return -1; // go to default mode
-#endif // ENABLE_JOYSTICK
 }
 
 // dispatcher ---------------------------------------------------------------------
@@ -431,6 +334,5 @@ void loop(){
   break;default: mode = loop_mode_0();
   break;case  0: mode = loop_mode_0();
   break;case  1: mode = loop_mode_1();
-  break;case  2: mode = loop_mode_2();
   }
 }
