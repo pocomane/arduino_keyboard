@@ -142,9 +142,13 @@ typedef enum {
 
 } key_seq_t;
 
+static void key_delay() {
+  delay(20); // MiSTer main app fails to detect keystroke if delay is ~ 10 ms, so always using a bigger one
+}
+
 static void send_single_key_seq(int key){
   Keyboard.press(key);
-  delay(10);
+  key_delay();
   Keyboard.release(key);
 }
 
@@ -154,18 +158,18 @@ static void send_seq(int seq){
 
     break; case SEQ_ALT_F12:
       Keyboard.press(KEY_LEFT_ALT);
-      delay(10);
+      key_delay();
       Keyboard.press(KEY_F12);
-      delay(10);
+      key_delay();
       Keyboard.release(KEY_F12);
       Keyboard.release(KEY_LEFT_ALT);
 
     break; case SEQ_WIN_F12:
       // KEY_LEFT_GUI = Windows key in arduino Keyboard lib
       Keyboard.press(KEY_LEFT_GUI);
-      delay(10);
+      key_delay();
       Keyboard.press(KEY_F12);
-      delay(10);
+      key_delay();
       Keyboard.release(KEY_F12);
       Keyboard.release(KEY_LEFT_GUI);
 
