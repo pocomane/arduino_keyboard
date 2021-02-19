@@ -199,16 +199,16 @@ static int loop_mode_0(void) {
     }
   }
 
-  if (LOW == mode) {
-    mode_sent += check_and_send_seq(C64BTN_PLAY, SEQ_SPACE);
-    mode_sent += check_and_send_seq(C64BTN_REWIND, SEQ_F11);
-    mode_sent += check_and_send_seq(C64BTN_FFWD, SEQ_WIN_F12);
-    mode_sent += check_and_send_seq(C64BTN_STOP, SEQ_ALT_F12);
-  } else {
+  if (HIGH == mode) {
     check_and_send_seq(C64BTN_PLAY, SEQ_ENTER);
     check_and_send_seq(C64BTN_REWIND, SEQ_UP);
     check_and_send_seq(C64BTN_FFWD, SEQ_DOWN);
-    check_and_send_seq(C64BTN_STOP, SEQ_ESCAPE);
+    check_and_send_seq(C64BTN_STOP, SEQ_SPACE);
+  } else {
+    mode_sent += check_and_send_seq(C64BTN_PLAY, SEQ_ESCAPE);
+    mode_sent += check_and_send_seq(C64BTN_REWIND, SEQ_F11);
+    mode_sent += check_and_send_seq(C64BTN_FFWD, SEQ_WIN_F12);
+    mode_sent += check_and_send_seq(C64BTN_STOP, SEQ_ALT_F12);
   }
 
   return 0;
